@@ -51,49 +51,83 @@ Install Horovod with NCCL support:
     HOROVOD_NCCL_HOME=/usr/local/nccl-2.2.12 HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 
 
-# OpenMPI examples
+# OpenMPI
 
-Create a file `myhosts` with text:
+There are a number of things to consider when running Python MPI applications on multiple machines:
+ * When using Anaconda, the Anaconda `./bin` directory must be in the `PATH` before the system Python executables
+ * The MPI `./bin` directory must be in the `PATH`
+ * The MPI `./lib` directory must be in the `LD_LIBRARY_PATH`
+ * Your Python code must exist on all machines in the same location
 
-	127.0.0.1 slots=4
+MPI uses a non-interactive shell for launching processes on remote machines. The best way to setup `PATH`
+and `LD_LIBRARY_PATH` variables is to add them to `/etc/environment`.
 
-**Note:** you might need to add --prefix argument to mpirun like this:
+MPI uses ssh to launch processes on remote machines. Install certificates so that ssh works without passwords
+between machines that serve MPI processes.
 
-	--prefix /usr/local
+The MPI processes on different machines communicate over TCP connections. Make sure there are no firewalls
+blocking the communication.
 
-## Point to point
+Also you should disable SSH host key checking by creating a file `~/.ssh/config` with content
+
+	Host *
+	   StrictHostKeyChecking no
+	   UserKnownHostsFile=/dev/null
+
+Running `env` from one MPI machine on another MPI machine is a good test to check all the points:
+
+	ssh ${REMOTE_SERVER_HOST} env
+
+## Byte Transfer Layer (BTL)
+
+ * `vader` BTL is a low-latency, high-bandwidth mechanism for transferring data between two processes via shared memory. 
+   This BTL can only be used between processes executing on the same node.
+ * `sm` BTL (shared-memory Byte Transfer Layer) is a low-latency, high-bandwidth mechanism for transferring data between 
+   two processes via shared memory. This BTL can only be used between processes executing on the same node.
+ * `tcp` BTL direct Open MPI to use TCP-based communications over IP interfaces / networks.
+
+
+## Examples
+
+Create a MPI hostfile `mpi_hosts` that specifies network addresses and number of slots:
+
+	${HOSTNAME1} slots=${NB_SLOTS}
+	${HOSTNAME2} slots=${NB_SLOTS}
+	...
+
+### Point to point
 
 Send data from one process to another.
 
-	mpirun -np 2 --hostfile myhosts --mca btl self,tcp python mpi_point_to_point.py
+	mpirun -np 2 --hostfile mpi_hosts --mca btl self,tcp python mpi_point_to_point.py
 
-## Broadcasting
+### Broadcasting
 
 Broadcasting takes a variable and sends an exact copy of it to all processes.
 
-	mpirun -np 4 --hostfile myhosts --mca btl self,tcp python mpi_broadcast.py
+	mpirun -np 4 --hostfile mpi_hosts --mca btl self,tcp python mpi_broadcast.py
 	> Rank:  0 , data received:  [0. 0.34888889 0.69777778 1.04666667 1.39555556 1.74444444 2.09333333 2.44222222 2.79111111 3.14 ]
 	> Rank:  1 , data received:  [0. 0.34888889 0.69777778 1.04666667 1.39555556 1.74444444 2.09333333 2.44222222 2.79111111 3.14 ]
 	> Rank:  2 , data received:  [0. 0.34888889 0.69777778 1.04666667 1.39555556 1.74444444 2.09333333 2.44222222 2.79111111 3.14 ]
 	> Rank:  3 , data received:  [0. 0.34888889 0.69777778 1.04666667 1.39555556 1.74444444 2.09333333 2.44222222 2.79111111 3.14 ]
  	
-## Scattering
+### Scattering
 
 Scatter takes an array and distributes contiguous sections of it to different processes. 
 
-	mpirun -np 4 --hostfile myhosts --mca btl self,tcp python mpi_scatter.py
+	mpirun -np 4 --hostfile mpi_hosts --mca btl self,tcp python mpi_scatter.py
 	> Rank:  0 , recvbuf received:  [ 1.  2.  3.  4.  5.  6.  7.  8.  9. 10.]
 	> Rank:  1 , recvbuf received:  [11. 12. 13. 14. 15. 16. 17. 18. 19. 20.]
 	> Rank:  2 , recvbuf received:  [21. 22. 23. 24. 25. 26. 27. 28. 29. 30.]
 	> Rank:  3 , recvbuf received:  [31. 32. 33. 34. 35. 36. 37. 38. 39. 40.]
 
 
-## Gathering
+### Gathering
 
 The reverse of a scatter is a gather, which takes subsets of an array that are distributed across the processes, 
 and gathers them back into the full array.
 
-	mpirun -np 4 --hostfile myhosts --mca btl self,tcp python mpi_gather.py
+	mpirun -np 4 --hostfile mpi_hosts --mca btl self,tcp python mpi_gather.py
 	> Rank:  0 , sendbuf:  [ 1.  2.  3.  4.  5.  6.  7.  8.  9. 10.]
 	> Rank:  1 , sendbuf:  [11. 12. 13. 14. 15. 16. 17. 18. 19. 20.]
 	> Rank:  2 , sendbuf:  [21. 22. 23. 24. 25. 26. 27. 28. 29. 30.]
@@ -101,11 +135,11 @@ and gathers them back into the full array.
 	> Rank:  0 , recvbuf received:  [ 1.  2.  3.  4.  5.  6.  7.  8.  9. 10. 11. 12. 13. 14. 15. 16. 17. 18. 19. 20. 21. 22. 23. 24. 25. 26. 27. 28. 29. 30. 31. 32. 33. 34. 35. 36. 37. 38. 39. 40.]
 
 
-## Reduce
+### Reduce
 
 The reduce operation takes values in from an array on each process and reduces them to a single result on the root process.
 
-	mpirun -np 4 --hostfile myhosts --mca btl self,tcp python mpi_reduce.py
+	mpirun -np 4 --hostfile mpi_hosts --mca btl self,tcp python mpi_reduce.py
 	> Rank:  0  value =  0.0
 	> Rank:  1  value =  1.0
 	> Rank:  2  value =  2.0
@@ -113,12 +147,12 @@ The reduce operation takes values in from an array on each process and reduces t
 	> Rank 0: value_sum = 6.0
 	> Rank 0: value_max = 3.0
 
-## Allreduce
+### Allreduce
 
 The allreduce operation takes values in from an array on each process, reduces them to a single result and sends the result 
 to each process. Note that the communication pattern is much more complex compared to the reduce operation.
 
-	mpirun -np 4 --hostfile myhosts --mca btl self,tcp python mpi_allreduce.py
+	mpirun -np 4 --hostfile mpi_hosts --mca btl self,tcp python mpi_allreduce.py
 	> Rank  0 value= 0.0
 	> Rank  1 value= 1.0
 	> Rank  2 value= 2.0

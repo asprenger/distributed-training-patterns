@@ -1,3 +1,5 @@
+import os
+import socket
 from mpi4py import MPI
 import numpy as np
 
@@ -7,7 +9,9 @@ rank = comm.Get_rank()
 # Create some np arrays on each process
 value = np.array(rank, 'd')
 
-print('Rank ', rank, 'value=', value)
+process_id = '%s@%s' % (os.getpid(), socket.gethostname())
+
+print(process_id, 'Rank', rank, 'value=', value)
 
 # initialize some buffers that will receive the result
 value_sum = np.array(0.0, 'd')
