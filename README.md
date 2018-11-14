@@ -87,7 +87,7 @@ Running `env` from one MPI machine on another MPI machine is a good test to chec
  * `tcp` BTL direct Open MPI to use TCP-based communications over IP interfaces / networks.
 
 
-## Examples
+## MPI Examples
 
 Create a MPI hostfile `mpi_hosts` that specifies network addresses and number of slots:
 
@@ -165,3 +165,47 @@ to each process. Note that the communication pattern is much more complex compar
 	> Rank 3 value_sum= 6.0
 	> Rank 3 value_max= 3.0
 	> Rank 1 value_max= 3.0
+
+
+# Horovod primitive examples
+
+## Horovod allreduce operation
+
+    mpirun -np 2 \
+        --hostfile mpi_hosts \
+        -bind-to none -map-by slot \
+        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+        -mca pml ob1 --mca btl self,tcp \
+        python -u hvd_allreduce.py
+
+
+## Horovod broadcast_global_variables operation
+
+    mpirun -np 2 \
+        --hostfile mpi_hosts \
+        -bind-to none -map-by slot \
+        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+        -mca pml ob1 --mca btl self,tcp \
+        python -u hvd_broadcast.py
+
+
+## Horovod allgather operation
+
+    mpirun -np 2 \
+        --hostfile mpi_hosts \
+        -bind-to none -map-by slot \
+        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+        -mca pml ob1 --mca btl self,tcp \
+        python -u hvd_allgather.py
+
+
+# Horovod Tensorflow example tensorflow_mnist.py
+
+To run on a machine with 8 GPUs:
+
+    time mpirun -np 2 \
+        --hostfile mpi_hosts \
+        -bind-to none -map-by slot \
+        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+        -mca pml ob1 --mca btl self,tcp \
+        python tensorflow_mnist.py
